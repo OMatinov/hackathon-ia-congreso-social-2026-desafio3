@@ -10,6 +10,60 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+ESTILO_BASE = """
+<style>
+:root {
+    --beige: #f5efe6;
+    --beige-oscuro: #e8dccb;
+    --cafe: #6f4e37;
+    --cafe-oscuro: #4e3424;
+    --texto: #1a1a1a;
+}
+.stApp {
+    background-color: var(--beige);
+    color: var(--texto);
+    font-family: "Segoe UI", system-ui, sans-serif;
+}
+h1, h2, h3 { color: var(--texto); font-weight: 700; }
+h1 { letter-spacing: -0.3px; }
+p, label, .stMarkdown, .stCaption { color: var(--texto); }
+.stCaption, [data-testid="stCaptionContainer"] { color: #4a4a4a !important; }
+
+/* Botón principal en café */
+.stButton > button[kind="primary"] {
+    background-color: var(--cafe);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.6rem 1.6rem;
+    font-weight: 600;
+}
+.stButton > button[kind="primary"]:hover { background-color: var(--cafe-oscuro); }
+
+/* Opciones de radio como tarjetas */
+div[role="radiogroup"] label {
+    background-color: #ffffff;
+    border: 1px solid var(--beige-oscuro);
+    border-left: 4px solid var(--cafe);
+    border-radius: 10px;
+    padding: 0.5rem 0.9rem;
+    margin-bottom: 0.4rem;
+}
+
+/* Cajas de texto y selectores */
+input, [data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    color: var(--texto) !important;
+    border-color: var(--beige-oscuro) !important;
+}
+
+/* Bloque de bienvenida y avisos */
+[data-testid="stAlert"] { border-radius: 10px; }
+
+footer { visibility: hidden; }
+</style>
+"""
+
 from nucleo import config, llm, marca, registro, salvaguardas, tono
 from variantes import b_perfil
 
@@ -412,6 +466,7 @@ def _etiqueta_ley(leyes: pd.DataFrame, id_ley: str) -> str:
 
 def main():
     st.set_page_config(page_title="La ley en simple · Desafío 3", page_icon="📜", layout="wide")
+    st.markdown(ESTILO_BASE, unsafe_allow_html=True)
     cfg = config.panel_config(DEFECTOS)
 
     # ---------------------------------------------------------
