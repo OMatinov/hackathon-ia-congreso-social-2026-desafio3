@@ -447,7 +447,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    st.caption("✨ *'Los jóvenes no son el futuro, son el momento presente de nuestra democracia.'* — Inspirado en el legado de San Alberto Hurtado.")
+    st.caption("✨ *'Los jóvenes no son el futuro, son el momento presente de nuestra democracia.'*")
     salvaguardas.mostrar_aviso()
 
     # Validación de ingreso del equipo oficial
@@ -463,7 +463,7 @@ def main():
     # ---------------------------------------------------------
     st.write("---")
     st.subheader("1. Identifica tu perfil ciudadano")
-    perfil_ui = st.radio(
+    perfil = st.radio(
         "Selecciona tu momento de vida actual para adaptar las explicaciones de la IA:",
         ["🎒 Escolar (Enseñanza Media / Menor de 18)", 
          "🎓 Universitario o Técnico (Educación Superior)", 
@@ -471,59 +471,61 @@ def main():
         index=0
     )
     
-    # La 3ra persona es dueña del selector; Persona B solo normaliza el valor para el prompt.
-    st.session_state["perfil_usuario"] = "escolar" if "🎒" in perfil_ui else "universitario" if "🎓" in perfil_ui else "laboral"
-    perfil = b_perfil.normalizar_perfil(st.session_state["perfil_usuario"])
-
-    # ---------------------------------------------------------
-    # 🌿 4. LLUVIA DE IDEAS: CATEGORÍAS DE INTERÉS
-    # ---------------------------------------------------------
-    st.subheader("2. ¿Qué causas te mueven hoy?")
-    col1, col2, col3, col4 = st.columns(4)
+    # Guardamos el perfil en el session_state para que el backend lo pueda leer en tono.py
+    PERFILES = {
+        "escolar": {
+            "usuario": "Estudiantes de enseñanza media (14 a 17 años).",
+            "tono": "Cercano y simple, con ejemplos de colegio y barrio. Sin tecnicismos. Sin opiniones.",
+            "largo_respuesta": "Entre 4 y 5 frases cortas."},
+        "universitario": {
+            "usuario": "Estudiantes de educación superior (18 a 24 años).",
+            "tono": "Claro y preciso; explica brevemente los términos jurídicos que aparezcan. Sin opiniones.",
+            "largo_respuesta": "Entre 5 y 7 frases."},
+        "laboral": {
+            "usuario": "Jóvenes que trabajan, buscan trabajo o emprenden (18 a 29 años).",
+            "tono": "Directo y práctico: a quién afecta, desde cuándo y qué pasa si no se cumple. Sin opiniones.",
+            "largo_respuesta": "Entre 4 y 6 frases."},
+    }
+    perfil_id = "escolar" if "🎒" in perfil else "universitario" if "🎓" in perfil else "laboral"
+    st.session_state["perfil_usuario"] = perfil_id
+    cfg = {**cfg, **PERFILES[perfil_id]}
+    perfil = b_perfil.normalizar_perfil(perfil_id)
     
-    if "categoria_seleccionada" not in st.session_state:
-        st.session_state["categoria_seleccionada"] = None  # "Todas"
+    # 🌿 4. INTERESES (cada uno muestra solo las leyes que realmente existen)
+    INTERESES = {
+        "🌿 Medioambiente y animales": ["L21100", "L21020"],
+        "🍎 Salud y consumo": ["L20606"],
+        "🏫 Calles y colegios": [],
+    }
+    CATEGORIAS = {
+        "🌿 Medioambiente y animales": "ecologia",
+        "🍎 Salud y consumo": "generico",
+        "🏫 Calles y colegios": "generico",
+    }
+    st.subheader("2. ¿Qué causas te mueven hoy?")
+    interes = st.radio("Elige un interés", list(INTERESES), horizontal=True,
+                       label_visibility="collapsed")
+    categoria = CATEGORIAS[interes]
 
-    with col1:
-        if st.button("🌿 Ecología y Medioambiente", use_container_width=True):
-            st.session_state["categoria_seleccionada"] = "ecologia"
-    with col2:
-        if st.button("📚 Educación y Cultura", use_container_width=True):
-            st.session_state["categoria_seleccionada"] = "educacion"
-    with col3:
-        if st.button("💼 Trabajo y Oportunidades", use_container_width=True):
-            st.session_state["categoria_seleccionada"] = "trabajo"
-    with col4:
-        if st.button("🌐 Todas", use_container_width=True):
-            st.session_state["categoria_seleccionada"] = None
-
-    categoria = st.session_state["categoria_seleccionada"]
-    if categoria:
-        st.caption(f"Filtrando leyes sobre **{categoria.capitalize()}**. Elige 'Todas' para ver el resto.")
-    else:
-        st.caption("Mostrando **todas** las leyes.")
-
-    # Carga original del corpus de leyes de la plantilla
-    corpus = filtrar_por_categoria(corpus_del_equipo(cargar_corpus()), categoria)
-    if corpus.empty:
-        st.info("No hay leyes cargadas para esa categoría. Prueba con 'Todas'.")
+    corpus = corpus_del_equipo(cargar_corpus())
+    leyes = corpus.drop_duplicates("id_ley").set_index("id_ley")
+    ids = [i for i in INTERESES[interes] if i in leyes.index]
+    if not ids:
+        st.info("Todavía no hay documentos cargados para este interés.")
         salvaguardas.pie(equipo)
         st.stop()
 
-    leyes = corpus.drop_duplicates("id_ley").set_index("id_ley")
-    
-    # Selector de Leyes (El usuario elige la ley dentro del sistema cerrado)
-    id_ley = st.selectbox("Selecciona el documento oficial que deseas que la IA traduzca:", leyes.index.tolist(),
+    id_ley = st.selectbox("Documento oficial a explicar:", ids,
                           format_func=lambda i: _etiqueta_ley(leyes, i))
     ley = corpus[corpus["id_ley"] == id_ley]
 
-    # Ajustar el placeholder dinámico según el perfil normalizado
-    if perfil == "Escolar":
+    # Ajustar el placeholder dinámico según la edad del usuario
+    if st.session_state["perfil_usuario"] == "escolar":
         placeholder_dinamico = "Ej: ¿Cómo afecta esto a mi colegio o barrio en palabras simples?"
-    elif perfil == "Universitario":
-        placeholder_dinamico = "Ej: ¿Qué artículos regulan mis derechos o prácticas en esta ley?"
+    elif st.session_state["perfil_usuario"] == "universitario":
+        placeholder_dinamico = "Ej: ¿Qué artículos regulan mis derechos o prácticas en este proyecto?"
     else:
-        placeholder_dinamico = "Ej: ¿Qué beneficios prácticos, plazos u obligaciones establece esta ley?"
+        placeholder_dinamico = "Ej: ¿Qué beneficios prácticos, plazos o subsidios económicos entrega esta ley?"
 
     pregunta = st.text_input("¿Tienes una pregunta específica sobre esta ley? (opcional)",
                              placeholder=placeholder_dinamico)
@@ -557,6 +559,7 @@ def main():
                         "descartadas": descartadas}, ensure_ascii=False), modo)
         st.session_state["ultimo_b"] = (r, frases, descartadas, id_ley, ley, perfil, categoria,
                                         mensaje, id_consulta)
+
 
     if "ultimo_b" in st.session_state:
         (r, frases, descartadas, id_ult, ley_ult, perfil_ult, categoria_ult,
